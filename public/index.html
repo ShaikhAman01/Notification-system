@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Notification system</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="user-panel">
+      <h2>User</h2>
+      <input type="text" id="userId" placeholder="Enter your user ID" />
+      <button onclick="registerUser()">Register</button>
+      <br /><br />
+      <input type="text" id="targetUser" placeholder="Target user ID" />
+      <select id="actionType">
+        <option value="accepted the task">Accept Task</option>
+        <option value="completed the task">Complete Task</option>
+        <option value="rejected the task">Reject Task</option>
+      </select>
+      <button onclick="triggerAction()">Trigger Action</button>
+    </div>
+
+    <div class="user-panel">
+      <h2>Notifications</h2>
+      <div id="notifications" class="notification-list"></div>
+    </div>
+
+    <script>
+      const socket = io();
+      let currentUserId = null;
+
+      function registerUser() {
+        const userId = document.getElementById("userId").value;
+        if (!userId) {
+          console.log("no user id");
+          alert("Please enter a user ID");
+          return;
+        }
+        currentUserId = userId;
+        socket.emit("register", userId);
+        alert("User registered successfully");
+      }
+
+      function triggerAction() {
+        if (!currentUserId) {
+          alert("Please register first");
+          return;
+        }
+
+        const targetUser = document.getElementById("targetUser").value;
+        const action = document.getElementById("actionType").value;
+
+        if (!targetUser || !action) {
+          alert("Please select a target user and action type");
+          return;
+        }
+
+        socket.emit("actionTriggered", {
+          fromUser: currentUserId,
+          toUser: targetUser,
+          action: action,
+        });
+        alert("Action triggered successfully");
+      }
+
+      function addNotification(notification) {
+        const notifications = document.getElementById("notifications");
+        const notificationElement = document.createElement("div");
+        notificationElement.className = "notification"; // Added for styling
+        notificationElement.innerHTML = `
+                <strong>${notification.from}:</strong> ${notification.message}
+                <br>
+                <small>${new Date(
+                  notification.timestamp
+                ).toLocaleString()}</small>
+            `;
+        notifications.insertBefore(
+          notificationElement,
+          notifications.firstChild
+        );
+      }
+
+      socket.on("notification", (notification) => {
+        console.log("Notification received:", notification);
+        addNotification(notification);
+
+        if (Notification.permission === "granted") {
+          new Notification("New Action", { body: notification.message });
+        } else if (Notification.permission !== "denied") {
+          Notification.requestPermission().then((permission) => {
+            if (permission === "granted") {
+              new Notification("New Action", { body: notification.message });
+            }
+          });
+        }
+      });
+    </script>
+  </body>
+</html>
